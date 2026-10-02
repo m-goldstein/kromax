@@ -16,7 +16,9 @@
       <a class="brand" href="/"
         ><span class="brand-mark">K</span> KROMAX
         <span class="brand-divider">/</span
-        ><span class="brand-sub">Candle Prediction Platform using Kronos by @m-goldstein</span></a
+        ><span class="brand-sub"
+          >Candle Prediction Platform using Kronos by @m-goldstein</span
+        ></a
       >
       <span class="connection"
         ><span class="dot" ng-class="{online: vm.connected}"></span
@@ -130,6 +132,19 @@
                 Change the seed to explore a different possible price path.
               </p>
             </details>
+            <label class="save-output-option" for="save-output">
+              <input
+                id="save-output"
+                type="checkbox"
+                ng-model="vm.form.saveOutput"
+                aria-describedby="save-output-help"
+              />
+              <span>Save forecast JSON</span>
+            </label>
+            <p class="field-note" id="save-output-help">
+              Keep a dated paper trail in outputs/ for backtesting and accuracy
+              tracking.
+            </p>
             <button
               class="primary"
               type="submit"
@@ -270,6 +285,20 @@
                 </table>
               </div>
             </div>
+            <p
+              class="save-output-status"
+              ng-if="vm.output.status === 'saved'"
+              role="status"
+            >
+              Forecast JSON saved to <code>{{vm.output.path}}</code>
+            </p>
+            <p
+              class="error-banner"
+              ng-if="vm.output.status === 'failed'"
+              role="alert"
+            >
+              {{vm.output.error}}
+            </p>
             <p class="result-notes">
               {{vm.result.source}} · Adjusted daily prices ·
               {{vm.result.calendar === '24/7' ? '24/7 trading calendar' : 'US

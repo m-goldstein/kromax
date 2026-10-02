@@ -64,6 +64,37 @@ On Windows, use `.venv\Scripts\python.exe` for Python commands and set `PYTHON_B
 - Kronos outputs unconstrained prices. Invalid/nonpositive prices fail explicitly. High/low values are expanded to contain all predicted OHLC values and negative volume is clamped to zero; the UI reports the count of corrected candles.
 - Historical and predicted candles use separate chart colors. CSV export includes both, labeled by kind.
 
+## JSON forecast paper trails
+
+Select **Save forecast JSON** before generating a forecast to archive that run on the server. The checkbox is unchecked by default. Files are written to the workspace's `outputs/` directory, next to `kromax/` and `Kronos/`, regardless of the directory used to launch Node. In this workspace that is `/home/max/kronos-maex/outputs/`.
+
+Each successful opted-in run creates a separate `TIMESTAMP_TICKER_JOB-ID.json` file. Runs for the same ticker never replace previous forecasts. The UI displays the saved path only after the complete JSON file is published. Saved files survive server restarts and job expiration; generated output files are ignored by Git. Files remain on the server filesystem rather than downloading through the browser.
+
+The versioned JSON document contains:
+
+- `schemaVersion` (currently `1`), `forecastId`, and UTC `requestedAt`, `generatedAt`, and `savedAt` timestamps.
+- `request`: the normalized ticker, dates (when supplied), horizon, model, seed, and save option.
+- `assets`: an array with the analyzed asset (one ticker per current request). Each entry includes `ticker`, `currency`, `interval`, `calendar`, model/device/seed/sampling settings, data source, adjustment flag, actual context dates, summary, and candle normalization count.
+- `assets[].candles`: predicted candles with `date` (`YYYY-MM-DD` session date), `open`, `high`, `low`, `close`, and `volume`, stored as JSON numbers at full returned precision.
+- `assets[].history`: the historical OHLCV input snapshot in the same dated format. This preserves the input prices even if the provider later revises them.
+
+For example, to read the dated predictions from a saved file:
+
+```python
+import json
+from pathlib import Path
+
+for path in Path("outputs").glob("*.json"):
+    record = json.loads(path.read_text())
+    for asset in record["assets"]:
+        for candle in asset["candles"]:
+            print(record["forecastId"], asset["ticker"], candle["date"], candle["close"])
+```
+
+Join future observed prices by ticker and candle date using the same interval and adjustment basis to calculate accuracy later. The forecast origin is `assets[].context.end`; `generatedAt` records when inference actually ran. Historical scenarios should not be treated as forecasts made in the past. These files record forecasts and inputs; fetching realized prices and computing accuracy metrics are separate steps.
+
+Failed inference produces no output file. If forecasting succeeds but saving fails, the chart remains available and the UI reports that the run has not been archived.
+
 ## Architecture and API
 
 ```text
@@ -77,10 +108,12 @@ AngularJS + Lightweight Charts
 `POST /api/forecasts` accepts:
 
 ```json
-{"ticker":"AAPL","start":"2025-01-01","end":"2025-07-03","horizon":10,"model":"small","seed":42}
+{"ticker":"AAPL","start":"2025-01-01","end":"2025-07-03","horizon":10,"model":"small","seed":42,"saveOutput":true}
 ```
 
 Only `ticker` is required. `horizon` is 1–60 (default 10), `model` is `mini`, `small`, or `base` (default small), and `seed` is a nonnegative 32-bit signed integer (default 42). Returns HTTP 202 with a job `id`.
+
+`saveOutput` is an optional boolean (default `false`). On completion, opted-in jobs also return `output: {status: "saved", path: "outputs/...json", savedAt: "..."}` or `output: {status: "failed", error: "..."}` if archiving failed. In either case the successful forecast stays in `result`.
 
 `GET /api/forecasts/:id` returns `queued`, `running`, `complete`, or `failed`, a progress message, and a `result` or `error` when finished. Results include model/data metadata, the actual context window, historical/forecast OHLCV arrays, and a price summary. `GET /api/health` reports API availability and queue state; it does not assert that models are downloaded or data providers are reachable.
 

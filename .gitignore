@@ -1,5 +1,7 @@
 # Keep the independent upstream checkout out of this application's repository.
 /Kronos/
+/outputs/*
+!/outputs/.gitkeep
 
 # Local dependencies, credentials, and generated artifacts.
 node_modules/

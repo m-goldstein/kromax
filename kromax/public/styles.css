@@ -215,7 +215,7 @@ form > label:first-child {
   font-size: 24px;
   color: var(--muted);
 }
-input:not([type="range"]),
+input:not([type="range"]):not([type="checkbox"]),
 select {
   width: 100%;
   background: #0b121a;
@@ -263,6 +263,24 @@ input::placeholder {
   color: #8291a0;
   line-height: 1.6;
   margin: 10px 0 0;
+}
+.save-output-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+.save-output-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.save-output-status {
+  color: var(--accent);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  margin: 16px 4px 0;
 }
 .field-divider {
   height: 1px;

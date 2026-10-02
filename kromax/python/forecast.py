@@ -147,6 +147,7 @@ class Forecaster:
             'name': metadata.get('longName') or metadata.get('shortName') or ticker,
             'interval': '1d', 'calendar': calendar, 'model': f'Kronos-{request["model"]}',
             'device': str(predictor.device), 'seed': request['seed'],
+            'sampling': {'temperature': 1.0, 'topP': 0.9, 'sampleCount': 1},
             'source': 'Yahoo Finance via yfinance', 'adjusted': True,
             'generatedAt': pd.Timestamp.now(tz='UTC').isoformat(),
             'requestedRange': {'start': start.isoformat(), 'end': end.isoformat()},

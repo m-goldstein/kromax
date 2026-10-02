@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { validateRequest } from "./validation.js";
 import { WorkerClient } from "./worker-client.js";
+import { saveForecast } from "./forecast-output.js";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const terminal = (job) => ["complete", "failed"].includes(job.status);
@@ -12,6 +13,7 @@ export function createApp({
   worker = new WorkerClient(),
   maxJobs = 100,
   maxQueue = 5,
+  outputDir = resolve(root, "../outputs"),
 } = {}) {
   const app = express();
   const jobs = new Map();
@@ -44,6 +46,19 @@ export function createApp({
       job.result = await worker.run(job.id, job.request, (message) => {
         job.message = message;
       });
+      if (job.request.saveOutput) {
+        job.message = "Saving forecast paper trail…";
+        try {
+          job.output = await saveForecast(job, outputDir);
+        } catch (error) {
+          console.error("Forecast output could not be saved:", error);
+          job.output = {
+            status: "failed",
+            error:
+              "Forecast completed, but its JSON paper trail could not be saved. Check the outputs directory permissions and available disk space. This run has not been archived.",
+          };
+        }
+      }
       job.status = "complete";
       job.message = "Forecast complete";
     } catch (error) {
@@ -93,11 +108,9 @@ export function createApp({
   app.get("/api/forecasts/:id", (req, res) => {
     const job = jobs.get(req.params.id);
     if (!job)
-      return res
-        .status(404)
-        .json({
-          error: "Forecast not found or expired. Submit a new analysis.",
-        });
+      return res.status(404).json({
+        error: "Forecast not found or expired. Submit a new analysis.",
+      });
     res.json(job);
   });
   app.use("/api", (req, res) =>
@@ -113,14 +126,12 @@ export function createApp({
   );
   app.use(express.static(`${root}public`));
   app.use((error, req, res, next) => {
-    res
-      .status(error.status || 500)
-      .json({
-        error:
-          error.type === "entity.parse.failed"
-            ? "Invalid JSON request."
-            : "Request could not be processed.",
-      });
+    res.status(error.status || 500).json({
+      error:
+        error.type === "entity.parse.failed"
+          ? "Invalid JSON request."
+          : "Request could not be processed.",
+    });
   });
   return {
     app,

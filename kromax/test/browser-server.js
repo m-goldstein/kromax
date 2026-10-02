@@ -1,4 +1,5 @@
 import { createApp } from "../server.js";
+import { fileURLToPath } from "node:url";
 
 // Synthetic data is confined to this test server. Production always uses Kronos.
 const candle = (time, close) => ({
@@ -23,6 +24,8 @@ const worker = {
       calendar: "NYSE",
       model: "Kronos-small",
       seed: request.seed,
+      generatedAt: new Date().toISOString(),
+      sampling: { temperature: 1, topP: 0.9, sampleCount: 1 },
       source: "Test fixture",
       context: {
         used: 3,
@@ -46,9 +49,12 @@ const worker = {
   },
   close() {},
 };
-const { app, close } = createApp(
-  process.env.KRONOS_LIVE === "1" ? {} : { worker },
-);
+const { app, close } = createApp({
+  ...(process.env.KRONOS_LIVE === "1" ? {} : { worker }),
+  outputDir: fileURLToPath(
+    new URL("../test-results/forecast-outputs/", import.meta.url),
+  ),
+});
 const server = app.listen(3100, "127.0.0.1");
 process.on("SIGTERM", () => {
   close();

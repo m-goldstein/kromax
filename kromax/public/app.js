@@ -10,7 +10,13 @@ angular
     function ($http, $timeout, $interval, $scope) {
       var vm = this;
       var pollTimer, elapsedTimer;
-      vm.form = { ticker: "AAPL", horizon: 10, model: "small", seed: 42 };
+      vm.form = {
+        ticker: "AAPL",
+        horizon: 10,
+        model: "small",
+        seed: 42,
+        saveOutput: false,
+      };
       vm.today = new Date().toISOString().slice(0, 10);
       $http.get("/api/health").then(
         function () {
@@ -45,6 +51,7 @@ angular
             vm.progress = job.message;
             if (job.status === "complete") {
               vm.result = job.result;
+              vm.output = job.output;
               stop();
               return;
             }
@@ -74,6 +81,7 @@ angular
       vm.submit = function () {
         if (vm.busy) return;
         vm.error = null;
+        vm.output = null;
         var request = angular.copy(vm.form);
         request.start = dateString(request.start);
         request.end = dateString(request.end);
@@ -173,12 +181,10 @@ angular
           priceFormat: { type: "volume" },
           priceScaleId: "volume",
         });
-        chart
-          .priceScale("volume")
-          .applyOptions({
-            scaleMargins: { top: 0.85, bottom: 0 },
-            visible: false,
-          });
+        chart.priceScale("volume").applyOptions({
+          scaleMargins: { top: 0.85, bottom: 0 },
+          visible: false,
+        });
         chart
           .priceScale("right")
           .applyOptions({ scaleMargins: { top: 0.1, bottom: 0.22 } });
@@ -205,12 +211,10 @@ angular
             }),
           );
           var total = result.history.length + result.forecast.length;
-          chart
-            .timeScale()
-            .setVisibleLogicalRange({
-              from: Math.max(0, total - 100),
-              to: total + 4,
-            });
+          chart.timeScale().setVisibleLogicalRange({
+            from: Math.max(0, total - 100),
+            to: total + 4,
+          });
         });
         var observer = new ResizeObserver(function () {
           chart.applyOptions({ width: host.clientWidth });

@@ -5,7 +5,8 @@ Ticker forecasting with a Node.js API, AngularJS interface, and the Kronos finan
 ```text
 workspace/
 ├── Kronos/   # Independent upstream clone, ignored by this repository
-└── kromax/   # Application source and its local Python environment
+├── kromax/   # Application source and its local Python environment
+└── outputs/  # Optional JSON forecast paper trails (generated files ignored)
 ```
 
 ## Run
@@ -18,6 +19,8 @@ npm start
 ```
 
 Open http://localhost:3000. Stop with Ctrl+C.
+
+Select **Save forecast JSON** to preserve a dated per-asset forecast and its input history in `outputs/` for later backtesting and accuracy tracking. See the [JSON format and behavior](kromax/README.md#json-forecast-paper-trails).
 
 For a fresh clone, obtain the upstream model source separately:
 

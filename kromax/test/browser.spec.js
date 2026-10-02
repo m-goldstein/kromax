@@ -15,6 +15,9 @@ test("submits ticker and range, renders real chart and table, exports CSV", asyn
   await page.locator("#start").fill("2025-01-01");
   await page.locator("#end").fill("2025-07-03");
   await page.locator("#horizon").fill("3");
+  const saveOutput = page.getByRole("checkbox", { name: "Save forecast JSON" });
+  await expect(saveOutput).not.toBeChecked();
+  await saveOutput.check();
   const submission = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/forecasts") &&
@@ -28,12 +31,31 @@ test("submits ticker and range, renders real chart and table, exports CSV", asyn
     start: "2025-01-01",
     end: "2025-07-03",
     horizon: 3,
+    saveOutput: true,
   });
   await expect(page.locator("tbody tr")).toHaveCount(3, {
     timeout: process.env.KRONOS_LIVE === "1" ? 890000 : 10000,
   });
   await expect(page.locator("tbody tr").first()).toContainText("2025-07-07");
   await expect(page.locator("candle-chart canvas").first()).toBeVisible();
+  await expect(page.locator(".save-output-status")).toContainText(
+    "Forecast JSON saved to outputs/",
+  );
+  const outputPath = await page
+    .locator(".save-output-status code")
+    .textContent();
+  const filename = outputPath.slice("outputs/".length);
+  const record = JSON.parse(
+    await readFile(
+      new URL(`../test-results/forecast-outputs/${filename}`, import.meta.url),
+      "utf8",
+    ),
+  );
+  expect(record.assets[0].ticker).toBe("AAPL");
+  expect(record.assets[0].candles).toHaveLength(3);
+  expect(record.assets[0].candles[0].date).toBe("2025-07-07");
+  expect(typeof record.assets[0].candles[0].close).toBe("number");
+  expect(record.request.saveOutput).toBe(true);
   await expect(
     page.getByRole("button", { name: "Generate forecast" }),
   ).toBeEnabled();

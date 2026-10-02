@@ -10,7 +10,10 @@ export function validateRequest(body) {
     horizon: body.horizon ?? 10,
     model: body.model ?? "small",
     seed: body.seed ?? 42,
+    saveOutput: body.saveOutput ?? false,
   };
+  if (body.saveOutput !== undefined && typeof body.saveOutput !== "boolean")
+    throw new Error("saveOutput must be a boolean.");
   if (
     !Number.isInteger(result.horizon) ||
     result.horizon < 1 ||
