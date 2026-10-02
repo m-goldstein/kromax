@@ -264,6 +264,98 @@ input::placeholder {
   line-height: 1.6;
   margin: 10px 0 0;
 }
+.field-note a,
+.research a {
+  color: var(--purple);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.settings-note {
+  margin-top: 14px;
+  padding: 12px;
+  border-left: 2px solid var(--purple);
+  background: #b9adff08;
+  color: #a9b7c5;
+  font-size: 11px;
+}
+.methodology-panel,
+.evaluation-panel {
+  margin-bottom: 20px;
+}
+.methodology-panel {
+  padding: 18px 20px;
+}
+.methodology-panel h3 {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.methodology-panel p,
+.evaluation-summary {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 0;
+}
+.evaluation-summary {
+  padding: 0 20px 20px;
+}
+.evaluation-summary.field-note {
+  padding-top: 16px;
+}
+.audit-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+}
+.audit-metrics span,
+.audit-metrics strong {
+  display: block;
+}
+.audit-metrics span {
+  font-size: 10px;
+}
+.audit-metrics strong {
+  color: var(--text);
+  font: 22px monospace;
+  margin-top: 8px;
+}
+.methodology-panel .baseline-notice {
+  padding: 12px;
+  margin-top: 14px;
+  border: 1px solid #7a683d;
+  border-radius: 5px;
+  color: #e8d599;
+}
+.selected-candidate td {
+  color: var(--accent);
+}
+.research {
+  max-width: 950px;
+  line-height: 1.8;
+}
+.research section {
+  margin: 32px 0;
+}
+.research h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+.research p,
+.research li {
+  color: #b6c4d1;
+}
+.research table {
+  white-space: normal;
+  font-family: inherit;
+}
+.research th,
+.research td {
+  text-align: left;
+  min-width: 125px;
+}
+.research code {
+  overflow-wrap: anywhere;
+}
 .save-output-option {
   display: flex;
   align-items: center;

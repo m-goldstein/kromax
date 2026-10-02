@@ -1,0 +1,15 @@
+{
+  "version": "2026-10-02.1",
+  "source": "https://arxiv.org/html/2508.02739v1",
+  "methods": [
+    {"id": "paper", "label": "Paper preset", "description": "Published daily setup: 40 candles of history, temperature 0.6, top-p 0.9, and 10 averaged paths. The paper used a 12-candle horizon; you can change it here.", "lookback": 40, "temperature": 0.6, "topP": 0.9, "sampleCount": 10, "horizon": 12},
+    {"id": "validated", "label": "Validate on this asset", "description": "Compare four settings on earlier windows, audit the winner on two later windows, and compare with repeating the last price. Slower; measures recent historical performance.", "lookback": 40, "temperature": 0.6, "topP": 0.9, "sampleCount": 10, "horizon": 12},
+    {"id": "custom", "label": "Custom", "description": "Control context, sampling, volume inputs, and reproducibility. Changing a random seed does not optimize accuracy.", "lookback": 400, "temperature": 1.0, "topP": 0.9, "sampleCount": 1, "horizon": 10}
+  ],
+  "candidates": [
+    {"id": "paper-40", "lookback": 40, "temperature": 0.6, "topP": 0.9, "sampleCount": 10},
+    {"id": "context-90", "lookback": 90, "temperature": 0.6, "topP": 0.9, "sampleCount": 10},
+    {"id": "context-180", "lookback": 180, "temperature": 0.6, "topP": 0.9, "sampleCount": 10},
+    {"id": "temperature-09", "lookback": 90, "temperature": 0.9, "topP": 0.9, "sampleCount": 10}
+  ]
+}

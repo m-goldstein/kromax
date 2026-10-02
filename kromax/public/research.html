@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kromax · Kronos accuracy research</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="research">
+      <p class="eyebrow">KROMAX / RESEARCH NOTES / 2 OCTOBER 2026 UTC</p>
+      <h1>Kronos accuracy: evidence and controls</h1>
+      <p><a href="/">← Return to forecasting</a></p>
+      <p>Kromax now offers a published starting configuration and an automatic comparison of settings on your asset. The objective is measurable price error. No source reviewed establishes a universally accurate seed, model size, or configuration for individual tickers. A historical winner can lose on future candles.</p>
+
+      <section>
+        <h2>What the primary sources support</h2>
+        <p><strong>The authors' experiments.</strong> The paper's price/return inference uses temperature 0.6, top-p 0.9, and ten averaged paths; its daily setup uses 40 context candles and 12 targets (Tables 6 and 8). Test-time scaling supports averaging in their benchmarks. The headline 93% is relative RankIC improvement, not 93% directional accuracy. Its reported pretraining cutoff is June 2024. Crypto/forex evaluation omits volume and amount. These are benchmark findings, not guarantees for this application's Yahoo data. <a href="https://arxiv.org/html/2508.02739v1">Kronos paper, appendices C–F</a>.</p>
+        <p><strong>The actual inference contract.</strong> The predictor accepts OHLC, volume, turnover and timestamps, normalizes each input window, and returns a mean across <code>sample_count</code> paths. When turnover is missing, it derives it from volume × mean OHLC. This is why Kromax uses the native sampling controls and does not insert RSI, news, or macroeconomic values into unrelated channels. Its averaged output alone cannot supply calibrated prediction intervals. <a href="https://github.com/shiyu-coder/Kronos/blob/67b630e67f6a18c9e9be918d9b4337c960db1e9a/model/kronos.py">Inspected predictor implementation</a>.</p>
+        <p><strong>Model and example differences.</strong> The model card lists mini with a 2,048 context limit and small/base with 512. The finetuning example uses 90 context candles, a ten-candle horizon, temperature 0.6, and five samples. That example is a different task setup; it does not establish 90 as optimal for every asset. Kromax keeps a common custom context cap of 512 and leaves model size under user control. <a href="https://huggingface.co/NeoQuasar/Kronos-base">Official model card</a>; <a href="https://github.com/shiyu-coder/Kronos/blob/67b630e67f6a18c9e9be918d9b4337c960db1e9a/finetune/config.py">Official finetuning configuration</a>.</p>
+        <p><strong>Maintainer interpretation.</strong> In response to an approximately 51% direction result, the maintainer says slightly above 50% without signal filtering can be normal and discusses selective trading. The reply supplies no validated universal filtering threshold. Kromax consequently measures errors and reports a baseline instead of assigning an invented “high confidence” label. <a href="https://github.com/shiyu-coder/Kronos/issues/132#issuecomment-3381664332">Maintainer's response in issue #132</a>.</p>
+      </section>
+
+      <section>
+        <h2>Independent reports: useful counter-evidence</h2>
+        <p>These are firsthand community reports, not independently reproduced results from this implementation. Their instruments, horizons, models and metrics differ. They motivate validation; they cannot determine this app's expected accuracy.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th scope="col">Source</th><th scope="col">Reported finding</th><th scope="col">Practical implication</th></tr></thead>
+            <tbody>
+              <tr><td><a href="https://github.com/shiyu-coder/Kronos/issues/354">AAPL rolling evaluation, #354</a></td><td>1,800 mini forecasts; tested configurations were roughly 12–22% worse than persistence by MAPE. Reported direction was about 48.5–54.3%. The original run did not fix seeds.</td><td>Small absolute price error alone is insufficient evidence of useful forecasting. Always compare the same dates with a simple baseline.</td></tr>
+              <tr><td><a href="https://github.com/shiyu-coder/Kronos/issues/375">182 US equities, #375</a></td><td>85 post-cutoff dates using small and paper-like inference. Reported cross-sectional IC +0.022, t-statistic 1.39; the confidence interval includes zero.</td><td>Cross-sectional ranking and single-ticker candle errors answer different questions. Neither automatically establishes profitable trading.</td></tr>
+              <tr><td><a href="https://github.com/sumit-ai-ml/kronos-market-eval">BTC/SPY evaluation repository</a></td><td>Hourly base-model experiments reported direction near chance and frequent losses to persistence. Nominal 80% sampled bands had much lower empirical coverage in its walk-forward results. Finetuning results were mixed.</td><td>Sample spread is not automatically calibrated uncertainty; lower token-training loss need not improve price prediction. This app does not expose unvalidated probability bands or automatically finetune.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>How the new controls work</h2>
+        <p><strong>Paper preset</strong> applies the published daily sampling/context choices. Changing the horizon is allowed and visibly flagged as a departure. This replaces the previous one-path, temperature-1, 400-candle default. It is a starting point, not a claim of improved accuracy on your ticker.</p>
+        <p><strong>Validate on this asset</strong> selects from a deliberately small search: contexts of 40, 90 and 180 at temperature 0.6, plus context 90 at temperature 0.9. Each uses ten paths and top-p 0.9. The extra candidates are Kromax design choices for testing context sensitivity and sampling variability; the 180/0.9 choices are not published universal optima. A bounded search limits compute and the opportunity to overfit many choices.</p>
+        <p>Choose closing-price MAE or MAE across all four OHLC channels. The last <code>(selection windows + 2) × horizon</code> completed candles form nonoverlapping target blocks. Three to eight earlier blocks select the settings. The selected configuration is frozen, then forecast on two later audit blocks. Each origin receives only its earlier context, although later origins may use observations that have since become historical. The model is not retrained. This follows the temporal ordering of <a href="https://otexts.com/fpp3/tscv.html">rolling-origin evaluation</a>.</p>
+        <p>Every candidate uses the same seed schedule (42, 43, …) for matching windows; the final forecast uses 42. No seed is selected for a lucky outcome. Identical seeds do not guarantee identical results across different devices or software. The audit uses later seeds and dates; it is still only two observations of a multi-step forecasting task.</p>
+        <p>At least <code>180 + (selection windows + 2) × horizon</code> consecutive candles are required. Default validation requires 240 candles; a three-candle horizon requires 195. Validation horizons are capped at 20 and all scored targets must start after June 2024. The cutoff guard is only a precaution: the training contents of downloaded checkpoints have not been independently verified. Validation evaluates the chosen model and volume mode; it does not search model size, volume modes or forecast horizons.</p>
+        <p><strong>Custom</strong> exposes context (30–512), temperature (0.1–1.5), top-p (0.1–1), and paths (1–30). Increasing samples increases work. Temperature and top-p alter token sampling; neither is a confidence percentage. Reproducible, fresh, and manual seeds remain available outside validation.</p>
+        <p><strong>Volume inputs</strong> default to included for US stocks/ETFs and zeroed for crypto. You may override either. Zeroing also zeros the derived turnover input; it does not erase original market volume from the history display. A result using price-only inputs should not be interpreted as a volume forecast.</p>
+      </section>
+
+      <section>
+        <h2>Reading the audit and optional fallback</h2>
+        <p>The comparison is a <a href="https://otexts.com/fpp3/simple-methods.html">naïve last-observation forecast</a>: every future OHLC price equals the last close available at that origin. Kromax averages absolute errors across target candles (and across four price channels for the OHLC objective), then across equal-length windows. Lower is better. Percentage error reduction is <code>100 × (1 − Kronos MAE / baseline MAE)</code>; negative means worse. When baseline error is zero, the ratio is undefined and shown as N/A.</p>
+        <p>The JSON additionally records close RMSE, close MAPE, OHLC MAE, and final-horizon direction agreement with the move from the origin's close. Direction agreement treats flat as a separate outcome. Two audit windows can only give extremely coarse directional results, so the main interface emphasizes price errors. No profit or trading-cost claims are inferred from these metrics.</p>
+        <p><strong>Use last-close baseline if audit fails</strong> is optional and off by default. If selected Kronos MAE is greater than or equal to baseline MAE on the audit, the final output uses flat last-close candles and repeats the last observed volume. The model label and banner explicitly identify this substitution. The displayed audit remains the selected Kronos model's audit, not a score for the substituted output. Because the substitution decision uses audit results, those results are not an unbiased evaluation of the complete decision rule; assessing that rule requires another untouched period.</p>
+      </section>
+
+      <section>
+        <h2>Data integrity, records, and remaining limits</h2>
+        <p>Kromax excludes incomplete sessions and invalid prices, keeps the most recent consecutive valid session segment, and refuses insufficient context rather than silently shortening it. Expected weekends and exchange holidays do not break the segment. Large observed moves are flagged rather than automatically deleted, since a genuine market jump is information. High/low projection and nonnegative-volume correction are applied to model outputs both during evaluation and final forecasting, so the scores describe the same output treatment.</p>
+        <p><strong>Save forecast JSON</strong> now archives effective settings, the final forecast, original final-context OHLCV, effective model inputs, every tuning/audit prediction and actual candle, baseline candles, window dates, seeds, and metrics. It includes the Kronos source commit, model identifier, PyTorch version and a SHA-256 of the effective final input frame serialized as pandas CSV. Candle dates in the archive consistently use <code>date</code>. The record identifies a baseline substitution explicitly. Paths themselves are averaged by Kronos; individual Monte Carlo trajectories are not retained.</p>
+        <p>Yahoo history is downloaded with today's split/dividend adjustments and may be revised. The effective OHLCV snapshot preserves what this run used; turnover is derived, not exchange-reported. Source commit and model identifier do not pin model-weight revisions. A historical end date creates a retrospective scenario, not a forecast made on that date. Small, recent windows are vulnerable to regime change and selection noise; trying many tickers or repeatedly inspecting audits also introduces selection bias.</p>
+        <p>For an accuracy study, choose the objective and operating rules in advance, archive forecasts before their target sessions occur, and score later observations on a consistent adjustment basis. Collect more independent origins across regimes and assets before claiming an improvement. The app's automated tests verify data flow, arithmetic, date separation and persistence; they are not evidence of market predictive skill.</p>
+        <p><strong>Local integration check, 2 October 2026 UTC:</strong> a real Yahoo/Kronos-small run for AAPL, range 1 July 2024 through 3 July 2025, horizon 3, three selection windows, close MAE, automatic volume, selected context 180 at temperature 0.6. On the two later audit windows (26 June–3 July 2025), Kronos MAE was $5.163 versus $3.807 for persistence, a 35.6% error increase. The enabled fallback returned explicitly labeled baseline candles. This small retrospective check validates the comparison and disclosure flow; it does not establish expected accuracy. Market-data revisions or changed model weights can change the numbers.</p>
+      </section>
+      <footer>Methodology version 2026-10-02.1 · Sources accessed 2 October 2026 UTC</footer>
+    </main>
+  </body>
+</html>

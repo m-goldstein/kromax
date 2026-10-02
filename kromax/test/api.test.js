@@ -49,12 +49,53 @@ test("rejects invalid tickers, dates, horizons and models without running infere
     { ticker: "AAPL", seed: -1 },
     { ticker: "AAPL", saveOutput: "true" },
     { ticker: "AAPL", saveOutput: null },
+    { ticker: "AAPL", method: "magic" },
+    { ticker: "AAPL", method: "custom", lookback: 513 },
+    { ticker: "AAPL", method: "custom", sampleCount: 0 },
+    { ticker: "AAPL", method: "custom", temperature: 0 },
+    { ticker: "AAPL", method: "custom", topP: 1.1 },
+    { ticker: "AAPL", method: "validated", horizon: 21 },
+    { ticker: "AAPL", method: "validated", validationWindows: 2 },
+    { ticker: "AAPL", method: "validated", seedMode: "fresh" },
+    { ticker: "AAPL", objective: "profit" },
+    { ticker: "AAPL", volumeMode: "sometimes" },
+    { ticker: "AAPL", fallbackToBaseline: "true" },
   ]) {
     const response = await api.post(request);
     assert.equal(response.status, 400, JSON.stringify(request));
     assert.ok((await response.json()).error);
   }
   assert.equal(calls, 0);
+});
+
+test("preset values reach the worker; custom and reproducibility controls are enforced", async (t) => {
+  const requests = [];
+  const api = await serve(t, {
+    async run(id, request) { requests.push(request); return fixtureResult(request.ticker); },
+    close() {},
+  });
+  const catalog = await (await api.get("/api/methods")).json();
+  assert.equal(catalog.methods.length, 3);
+  assert.equal(catalog.candidates.length, 4);
+  await completedJob(api, { ticker: "AAPL", temperature: 1.4, sampleCount: 1, lookback: 400 });
+  assert.equal(requests[0].temperature, 0.6);
+  assert.equal(requests[0].sampleCount, 10);
+  assert.equal(requests[0].lookback, 40);
+  assert.equal(requests[0].horizon, 12);
+  assert.equal(requests[0].seed, 42);
+  assert.equal(requests[0].methodologyVersion, catalog.version);
+  await completedJob(api, { ticker: "AAPL", method: "custom", lookback: 120, temperature: .8, topP: .95, sampleCount: 5, seedMode: "manual", seed: 19 });
+  assert.equal(requests[1].lookback, 120);
+  assert.equal(requests[1].temperature, .8);
+  assert.equal(requests[1].topP, .95);
+  assert.equal(requests[1].sampleCount, 5);
+  assert.equal(requests[1].seed, 19);
+  await completedJob(api, { ticker: "AAPL", seed: 123 });
+  assert.equal(requests[2].seed, 123, "legacy API seed remains explicit manual seeding");
+  await completedJob(api, { ticker: "AAPL", method: "validated", seed: 123 });
+  assert.equal(requests[3].seed, 42, "validation cannot search manual seeds");
+  await completedJob(api, { ticker: "AAPL", seedMode: "fresh" });
+  assert.ok(Number.isInteger(requests[4].seed) && requests[4].seed >= 0 && requests[4].seed <= 2147483647);
 });
 
 async function outputDirectory(t) {
@@ -241,6 +282,7 @@ test("serves UI and local vendor assets with security headers", async (t) => {
     "/",
     "/app.js",
     "/styles.css",
+    "/research.html",
     "/vendor/angular.js",
     "/vendor/charts.js",
   ]) {

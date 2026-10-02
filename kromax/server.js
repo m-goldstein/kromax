@@ -2,7 +2,7 @@ import express from "express";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { validateRequest } from "./validation.js";
+import { validateRequest, forecastMethods } from "./validation.js";
 import { WorkerClient } from "./worker-client.js";
 import { saveForecast } from "./forecast-output.js";
 
@@ -74,6 +74,7 @@ export function createApp({
   app.get("/api/health", (req, res) =>
     res.json({ status: "ok", busy: active, queued: queue.length }),
   );
+  app.get("/api/methods", (req, res) => res.json(forecastMethods));
   app.post("/api/forecasts", (req, res) => {
     let request;
     try {

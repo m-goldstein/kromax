@@ -12,11 +12,38 @@ angular
       var pollTimer, elapsedTimer;
       vm.form = {
         ticker: "AAPL",
-        horizon: 10,
+        method: "paper",
+        horizon: 12,
         model: "small",
         seed: 42,
+        seedMode: "reproducible",
+        lookback: 40,
+        temperature: 0.6,
+        topP: 0.9,
+        sampleCount: 10,
+        volumeMode: "auto",
+        validationWindows: 3,
+        objective: "close_mae",
+        fallbackToBaseline: false,
         saveOutput: false,
       };
+      vm.methods = [];
+      vm.changeMethod = function () {
+        vm.methodInfo = vm.methods.find(function (method) {
+          return method.id === vm.form.method;
+        });
+        if (!vm.methodInfo) return;
+        ["lookback", "temperature", "topP", "sampleCount", "horizon"].forEach(function (key) {
+          vm.form[key] = vm.methodInfo[key];
+        });
+        vm.form.seedMode = "reproducible";
+      };
+      $http.get("/api/methods").then(function (response) {
+        vm.methods = response.data.methods;
+        vm.changeMethod();
+      }, function () {
+        vm.error = "Could not load forecast methods. Refresh the page to retry.";
+      });
       vm.today = new Date().toISOString().slice(0, 10);
       $http.get("/api/health").then(
         function () {
@@ -130,7 +157,8 @@ angular
         var url = URL.createObjectURL(blob);
         var a = document.createElement("a");
         a.href = url;
-        a.download = vm.result.ticker + "-kronos-forecast.csv";
+        var method = vm.result.methodology && vm.result.methodology.forecastMethod === "persistence" ? "persistence" : "kronos";
+        a.download = vm.result.ticker + "-" + method + "-forecast.csv";
         a.click();
         $timeout(function () {
           URL.revokeObjectURL(url);

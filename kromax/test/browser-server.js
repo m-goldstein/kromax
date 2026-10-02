@@ -1,5 +1,6 @@
 import { createApp } from "../server.js";
 import { fileURLToPath } from "node:url";
+import { forecastMethods } from "../validation.js";
 
 // Synthetic data is confined to this test server. Production always uses Kronos.
 const candle = (time, close) => ({
@@ -10,6 +11,24 @@ const candle = (time, close) => ({
   close,
   volume: 1000,
 });
+const fixtureEvaluation = (request) => {
+  const fold = (dates) => ({
+    origin: "2025-06-25", start: dates[0], end: dates.at(-1), seed: 42,
+    prediction: dates.map((day, i) => candle(day, 101 + i)),
+    actual: dates.map((day, i) => candle(day, 100 + i)),
+    baseline: dates.map(day => ({ time: day, open: 99, high: 99, low: 99, close: 99, volume: 1000 })),
+    metrics: { objectiveMAE: 1, baselineMAE: 2, closeMAE: 1 },
+  });
+  const folds = [fold(["2025-06-26", "2025-06-27", "2025-06-30"]), fold(["2025-07-01", "2025-07-02", "2025-07-03"])];
+  return {
+    method: "chronological-selection-then-audit", objective: request.objective,
+    selectedCandidate: "paper-40", tuningWindows: request.validationWindows, auditWindows: 2,
+    candidates: forecastMethods.candidates.map((settings, i) => ({ settings, status: "complete", metrics: { objectiveMAE: i + 1 }, folds: [] })),
+    audit: { metrics: { objectiveMAE: 1, baselineMAE: 2, skillPercent: 50 }, folds },
+    baselineFallback: false, history: [candle("2025-06-25", 99)],
+    limitations: "Retrospective audit on two windows, not proof of future accuracy.",
+  };
+};
 const worker = {
   async run(id, request, progress) {
     progress("Loading test fixture…");
@@ -25,7 +44,10 @@ const worker = {
       model: "Kronos-small",
       seed: request.seed,
       generatedAt: new Date().toISOString(),
-      sampling: { temperature: 1, topP: 0.9, sampleCount: 1 },
+      sampling: { temperature: request.temperature, topP: request.topP, sampleCount: request.sampleCount },
+      methodology: { method: request.method, settings: { lookback: request.lookback }, forecastMethod: "kronos", volumeIncluded: true },
+      evaluation: request.method === "validated" ? fixtureEvaluation(request) : null,
+      inputHistory: [candle("2025-07-03", 103)],
       source: "Test fixture",
       context: {
         used: 3,

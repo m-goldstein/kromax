@@ -5,9 +5,28 @@ import { join } from "node:path";
 const datedCandles = (candles) =>
   candles.map(({ time, ...prices }) => ({ date: time, ...prices }));
 
+const datedEvaluation = (evaluation) => {
+  if (!evaluation) return evaluation;
+  const datedRun = (run) => ({
+    ...run,
+    ...(run.folds ? { folds: run.folds.map((fold) => ({
+      ...fold,
+      prediction: datedCandles(fold.prediction),
+      actual: datedCandles(fold.actual),
+      baseline: datedCandles(fold.baseline),
+    })) } : {}),
+  });
+  return {
+    ...evaluation,
+    history: datedCandles(evaluation.history),
+    candidates: evaluation.candidates.map(datedRun),
+    audit: datedRun(evaluation.audit),
+  };
+};
+
 export async function saveForecast(job, outputDir) {
   const savedAt = new Date().toISOString();
-  const { history, forecast, ...metadata } = job.result;
+  const { history, forecast, inputHistory, evaluation, ...metadata } = job.result;
   const record = {
     schemaVersion: 1,
     forecastId: job.id,
@@ -18,6 +37,8 @@ export async function saveForecast(job, outputDir) {
     assets: [
       {
         ...metadata,
+        ...(inputHistory ? { inputHistory: datedCandles(inputHistory) } : {}),
+        ...(evaluation ? { evaluation: datedEvaluation(evaluation) } : {}),
         history: datedCandles(history),
         candles: datedCandles(forecast),
       },

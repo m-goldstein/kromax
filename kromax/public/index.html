@@ -71,6 +71,11 @@
             <p class="field-note">
               US stocks, ETFs, and crypto · Daily candles
             </p>
+            <label for="method">Forecast method</label>
+            <select id="method" ng-model="vm.form.method" ng-change="vm.changeMethod()"
+              ng-options="method.id as method.label for method in vm.methods" required></select>
+            <p class="field-note">{{vm.methodInfo.description}}</p>
+            <p class="field-note"><a href="/research.html" target="_blank" rel="noreferrer">Research &amp; methodology ↗</a></p>
             <div class="field-divider"></div>
             <div class="label-row">
               <span class="label">Historical range</span
@@ -91,8 +96,9 @@
               max="{{vm.today}}"
             />
             <p class="field-note">
-              Leave blank for recent history. Uses up to 400 completed candles;
-              at least 30 required.
+              Leave blank for recent history.
+              <span ng-if="vm.form.method !== 'validated'">Requires {{vm.form.lookback}} consecutive completed candles.</span>
+              <span ng-if="vm.form.method === 'validated'">Requires at least {{180 + (vm.form.validationWindows + 2) * vm.form.horizon}} consecutive completed candles. Validation targets must be after June 2024.</span>
             </p>
             <div class="field-divider"></div>
             <label for="horizon"
@@ -103,12 +109,12 @@
               id="horizon"
               type="range"
               min="1"
-              max="60"
+              max="{{vm.form.method === 'validated' ? 20 : 60}}"
               step="1"
               ng-model="vm.form.horizon"
             />
             <div class="range-labels">
-              <span>1 day</span><span>60 sessions</span>
+              <span>1 day</span><span>{{vm.form.method === 'validated' ? 20 : 60}} sessions</span>
             </div>
             <label for="model">Model</label
             ><select id="model" ng-model="vm.form.model">
@@ -116,21 +122,57 @@
               <option value="small">Kronos-small · Balanced</option>
               <option value="base">Kronos-base · Larger</option>
             </select>
+            <div ng-if="vm.form.method === 'paper'" class="settings-note">
+              40 candles · Temperature 0.6 · Top-p 0.9 · Mean of 10 paths.
+              <span ng-if="vm.form.horizon !== 12">Your horizon differs from the paper's daily 12-candle setup.</span>
+            </div>
+            <div ng-if="vm.form.method === 'validated'">
+              <label for="objective">Minimize historical error</label>
+              <select id="objective" ng-model="vm.form.objective">
+                <option value="close_mae">Closing price · MAE</option>
+                <option value="ohlc_mae">All OHLC prices · MAE</option>
+              </select>
+              <label for="validation-windows">Windows used to select settings</label>
+              <input id="validation-windows" type="number" ng-model="vm.form.validationWindows" min="3" max="8" step="1" required />
+              <p class="field-note">Compares four configurations, then audits the winner on two later windows. Each window matches your horizon. Uses fixed seeds; may take several minutes.</p>
+              <label class="save-output-option" for="baseline-fallback">
+                <input id="baseline-fallback" type="checkbox" ng-model="vm.form.fallbackToBaseline" />
+                <span>Use last-close baseline if audit fails</span>
+              </label>
+              <p class="field-note">If Kronos does not beat the baseline on the two audit windows, return flat candles at the last close. This choice will be labeled in the result.</p>
+            </div>
+            <div ng-if="vm.form.method === 'custom'" class="custom-settings">
+              <label for="lookback">Context candles</label>
+              <input id="lookback" type="number" ng-model="vm.form.lookback" min="30" max="512" step="1" required />
+              <label for="temperature">Temperature</label>
+              <input id="temperature" type="number" ng-model="vm.form.temperature" min="0.1" max="1.5" step="0.05" required />
+              <label for="top-p">Top-p</label>
+              <input id="top-p" type="number" ng-model="vm.form.topP" min="0.1" max="1" step="0.05" required />
+              <label for="sample-count">Paths to average</label>
+              <input id="sample-count" type="number" ng-model="vm.form.sampleCount" min="1" max="30" step="1" required />
+            </div>
             <details>
-              <summary>Sampling settings</summary>
-              <label class="small-label" for="seed">Random seed</label
-              ><input
-                id="seed"
-                type="number"
-                ng-model="vm.form.seed"
-                min="0"
-                max="2147483647"
-                step="1"
-                required
-              />
-              <p class="field-note">
-                Change the seed to explore a different possible price path.
-              </p>
+              <summary>Volume &amp; reproducibility</summary>
+              <label for="volume-mode">Volume inputs</label>
+              <select id="volume-mode" ng-model="vm.form.volumeMode">
+                <option value="auto">Auto · Price only for crypto</option>
+                <option value="include">Include volume</option>
+                <option value="exclude">Price only</option>
+              </select>
+              <p class="field-note">Auto includes volume for US stocks/ETFs. Price-only mode zeros volume and derived turnover inputs.</p>
+              <div ng-if="vm.form.method !== 'validated'">
+                <label for="seed-mode">Randomness</label>
+                <select id="seed-mode" ng-model="vm.form.seedMode">
+                  <option value="reproducible">Reproducible · Seed 42</option>
+                  <option value="fresh">Fresh seed each run</option>
+                  <option value="manual">Manual seed</option>
+                </select>
+                <div ng-if="vm.form.seedMode === 'manual'">
+                  <label class="small-label" for="seed">Random seed</label>
+                  <input id="seed" type="number" ng-model="vm.form.seed" min="0" max="2147483647" step="1" required />
+                </div>
+              </div>
+              <p class="field-note">Seeds control repeatability, not accuracy. Validation uses the same seed schedule for every candidate.</p>
             </details>
             <label class="save-output-option" for="save-output">
               <input
@@ -148,7 +190,7 @@
             <button
               class="primary"
               type="submit"
-              ng-disabled="vm.busy || analysisForm.$invalid"
+              ng-disabled="vm.busy || !vm.methods.length || analysisForm.$invalid"
             >
               <span ng-if="!vm.busy"
                 >Generate forecast <span aria-hidden="true">↗</span></span
@@ -207,6 +249,37 @@
               <button class="secondary" ng-click="vm.download()">
                 Export CSV ↓
               </button>
+            </div>
+            <div class="panel methodology-panel" ng-if="vm.result.methodology">
+              <h3>{{vm.result.methodology.forecastMethod === 'persistence' ? 'Evaluated Kronos settings' : 'Forecast settings'}}</h3>
+              <p>{{vm.result.methodology.method === 'validated' ? 'Selected on this asset' : vm.result.methodology.method === 'paper' ? 'Paper preset' : 'Custom settings'}} ·
+                {{vm.result.methodology.settings.lookback}} context candles ·
+                Temperature {{vm.result.sampling.temperature}} · Top-p {{vm.result.sampling.topP}} ·
+                Mean of {{vm.result.sampling.sampleCount}} paths</p>
+              <p class="field-note">{{vm.result.methodology.volumeIncluded ? 'Volume inputs included' : 'Price-only inputs; predicted volume is not a volume forecast'}} · Seed {{vm.result.seed}}</p>
+              <p class="baseline-notice" ng-if="vm.result.methodology.forecastMethod === 'persistence'">
+                <strong>Baseline used for the displayed forecast.</strong> The selected Kronos configuration did not beat the last-close baseline in the audit. {{vm.result.methodology.baselineDefinition}}
+              </p>
+            </div>
+            <div class="panel evaluation-panel" ng-if="vm.result.evaluation">
+              <div class="chart-heading"><h3>Historical accuracy check</h3><span class="optional">{{vm.result.evaluation.tuningWindows}} selection + 2 audit windows</span></div>
+              <div class="evaluation-summary">
+                <p>Selected <strong>{{vm.result.evaluation.selectedCandidate}}</strong> by lowest {{vm.result.evaluation.objective === 'close_mae' ? 'close' : 'OHLC'}} mean absolute error (MAE). Errors below are in {{vm.result.currency}}.</p>
+                <div class="audit-metrics">
+                  <div><span>Audit Kronos MAE</span><strong>{{vm.result.evaluation.audit.metrics.objectiveMAE | number:3}}</strong></div>
+                  <div><span>Audit baseline MAE</span><strong>{{vm.result.evaluation.audit.metrics.baselineMAE | number:3}}</strong></div>
+                  <div><span>Error reduction vs baseline</span><strong ng-class="{'positive': vm.result.evaluation.audit.metrics.skillPercent > 0, 'negative': vm.result.evaluation.audit.metrics.skillPercent < 0}">{{vm.result.evaluation.audit.metrics.skillPercent === null ? 'N/A' : (vm.result.evaluation.audit.metrics.skillPercent | number:1) + '%'}}</strong></div>
+                </div>
+                <p class="field-note">Audit: {{vm.result.evaluation.audit.folds[0].start}} through {{vm.result.evaluation.audit.folds[1].end}}. Positive reduction means lower error. The baseline holds every OHLC price at the last observed close.</p>
+              </div>
+              <div class="table-scroll"><table class="candidate-table">
+                <thead><tr><th scope="col">Candidate</th><th scope="col">Context</th><th scope="col">Temperature</th><th scope="col">Selection MAE</th></tr></thead>
+                <tbody><tr ng-repeat="candidate in vm.result.evaluation.candidates" ng-class="{'selected-candidate': candidate.settings.id === vm.result.evaluation.selectedCandidate}">
+                  <td>{{candidate.settings.id}}<span ng-if="candidate.settings.id === vm.result.evaluation.selectedCandidate"> · selected</span><span ng-if="candidate.status === 'failed'"> · {{candidate.error}}</span></td>
+                  <td>{{candidate.settings.lookback}}</td><td>{{candidate.settings.temperature}}</td><td>{{candidate.status === 'failed' ? 'Failed' : (candidate.metrics.objectiveMAE | number:3)}}</td>
+                </tr></tbody>
+              </table></div>
+              <p class="evaluation-summary field-note">{{vm.result.evaluation.limitations}} Save forecast JSON to retain every prediction, observation, window, and score.</p>
             </div>
             <div class="metrics">
               <article class="panel metric">
@@ -310,6 +383,12 @@
               >
               Forecast starts after the last completed candle in the selected
               range.
+            </p>
+            <p class="result-notes" ng-if="vm.result.dataQuality.excludedEarlierCandles">
+              A missing or invalid session broke the history. {{vm.result.dataQuality.excludedEarlierCandles}} earlier candles were excluded to keep a consecutive context.
+            </p>
+            <p class="result-notes" ng-if="vm.result.dataQuality.zeroVolumeCandles || vm.result.dataQuality.largeMoveCandles">
+              Input checks: {{vm.result.dataQuality.zeroVolumeCandles}} zero-volume candles; {{vm.result.dataQuality.largeMoveCandles}} close changes exceeding 30%. Review unusual data before relying on the result.
             </p>
           </div>
           <div class="method-note">
