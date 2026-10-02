@@ -1,0 +1,15 @@
+# Keep the independent upstream checkout out of this application's repository.
+/Kronos/
+
+# Local dependencies, credentials, and generated artifacts.
+node_modules/
+.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.log
+playwright-report/
+test-results/
+.DS_Store

@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en" ng-app="kronosLab" ng-csp>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1016" />
+    <title>Kromax · Kronos Forecasting</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+    <script defer src="/vendor/angular.js"></script>
+    <script defer src="/vendor/charts.js"></script>
+    <script defer src="/app.js"></script>
+  </head>
+  <body ng-controller="LabController as vm" ng-cloak>
+    <header class="topbar">
+      <a class="brand" href="/"
+        ><span class="brand-mark">K</span> KRONOS
+        <span class="brand-divider">/</span
+        ><span class="brand-sub">KROMAX</span></a
+      >
+      <span class="connection"
+        ><span class="dot" ng-class="{online: vm.connected}"></span
+        >{{vm.connected ? 'API connected' : 'Connecting to API'}}</span
+      >
+    </header>
+    <main>
+      <div class="intro">
+        <div>
+          <p class="eyebrow">MARKET INTELLIGENCE / CANDLE FORECASTING</p>
+          <h1>A view into the next candle.</h1>
+          <p class="subtitle">
+            Explore price action with the Kronos financial foundation model.
+          </p>
+        </div>
+        <span class="version">RESEARCH WORKSPACE <span>01</span></span>
+      </div>
+      <div class="workspace">
+        <aside class="panel controls">
+          <div class="panel-heading">
+            <span class="section-number">01</span>
+            <h2>Build your analysis</h2>
+          </div>
+          <form name="analysisForm" ng-submit="vm.submit()">
+            <label for="ticker">Ticker symbol</label>
+            <div class="ticker-input">
+              <span aria-hidden="true">⌕</span
+              ><input
+                id="ticker"
+                name="ticker"
+                type="text"
+                ng-model="vm.form.ticker"
+                maxlength="20"
+                placeholder="e.g. AAPL"
+                required
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+            <div class="quick-picks">
+              <button
+                type="button"
+                ng-repeat="symbol in ['AAPL', 'NVDA', 'SPY', 'BTC-USD']"
+                ng-click="vm.form.ticker = symbol"
+                ng-class="{selected: vm.form.ticker === symbol}"
+              >
+                {{symbol}}
+              </button>
+            </div>
+            <p class="field-note">
+              US stocks, ETFs, and crypto · Daily candles
+            </p>
+            <div class="field-divider"></div>
+            <div class="label-row">
+              <span class="label">Historical range</span
+              ><span class="optional">OPTIONAL</span>
+            </div>
+            <label class="small-label" for="start">From</label
+            ><input
+              id="start"
+              type="date"
+              ng-model="vm.form.start"
+              max="{{vm.today}}"
+            />
+            <label class="small-label" for="end">Through</label
+            ><input
+              id="end"
+              type="date"
+              ng-model="vm.form.end"
+              max="{{vm.today}}"
+            />
+            <p class="field-note">
+              Leave blank for recent history. Uses up to 400 completed candles;
+              at least 30 required.
+            </p>
+            <div class="field-divider"></div>
+            <label for="horizon"
+              >Forecast horizon
+              <span class="value-tag">{{vm.form.horizon}} candles</span></label
+            >
+            <input
+              id="horizon"
+              type="range"
+              min="1"
+              max="60"
+              step="1"
+              ng-model="vm.form.horizon"
+            />
+            <div class="range-labels">
+              <span>1 day</span><span>60 sessions</span>
+            </div>
+            <label for="model">Model</label
+            ><select id="model" ng-model="vm.form.model">
+              <option value="mini">Kronos-mini · Fast</option>
+              <option value="small">Kronos-small · Balanced</option>
+              <option value="base">Kronos-base · Larger</option>
+            </select>
+            <details>
+              <summary>Sampling settings</summary>
+              <label class="small-label" for="seed">Random seed</label
+              ><input
+                id="seed"
+                type="number"
+                ng-model="vm.form.seed"
+                min="0"
+                max="2147483647"
+                step="1"
+                required
+              />
+              <p class="field-note">
+                Change the seed to explore a different possible price path.
+              </p>
+            </details>
+            <button
+              class="primary"
+              type="submit"
+              ng-disabled="vm.busy || analysisForm.$invalid"
+            >
+              <span ng-if="!vm.busy"
+                >Generate forecast <span aria-hidden="true">↗</span></span
+              ><span ng-if="vm.busy"
+                ><span class="spinner"></span> Analyzing…</span
+              >
+            </button>
+            <p class="under-button">First run downloads the selected model.</p>
+          </form>
+        </aside>
+        <section
+          class="results"
+          aria-label="Analysis results"
+          aria-busy="{{vm.busy}}"
+        >
+          <div class="status-banner" ng-if="vm.busy" role="status">
+            <span class="spinner"></span>
+            <div>
+              <strong>{{vm.progress}}</strong>
+              <p>
+                Elapsed {{vm.elapsed}}s · You can keep this page open while
+                Kronos works.
+              </p>
+            </div>
+          </div>
+          <div class="error-banner" ng-if="vm.error" role="alert">
+            <strong>Analysis could not finish</strong>
+            <p>{{vm.error}}</p>
+          </div>
+          <div class="panel empty-state" ng-if="!vm.result && !vm.busy">
+            <div class="empty-symbol" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <span class="eyebrow">FROM HISTORY TO POSSIBILITY</span>
+            <h2>Your next perspective starts here.</h2>
+            <p>
+              Choose a ticker and generate a forecast to see historical price
+              action alongside the next predicted candles.
+            </p>
+            <div class="empty-steps">
+              <span><b>01</b> Select a market</span
+              ><span><b>02</b> Set your horizon</span
+              ><span><b>03</b> Explore the forecast</span>
+            </div>
+          </div>
+          <div ng-if="vm.result" class="result-content">
+            <div class="result-title">
+              <div>
+                <p class="eyebrow">
+                  {{vm.result.name}} / {{vm.result.currency}}
+                </p>
+                <h2>
+                  {{vm.result.ticker}} <span class="interval-badge">1D</span>
+                </h2>
+              </div>
+              <button class="secondary" ng-click="vm.download()">
+                Export CSV ↓
+              </button>
+            </div>
+            <div class="metrics">
+              <article class="panel metric">
+                <span>Last historical close</span
+                ><strong>{{vm.result.summary.lastClose | number:2}}</strong
+                ><small
+                  >{{vm.result.context.end}} · {{vm.result.currency}}</small
+                >
+              </article>
+              <article class="panel metric">
+                <span>Final forecast close</span
+                ><strong>{{vm.result.summary.forecastClose | number:2}}</strong
+                ><small
+                  >{{vm.result.forecast[vm.result.forecast.length - 1].time}} ·
+                  {{vm.result.currency}}</small
+                >
+              </article>
+              <article class="panel metric">
+                <span>Modeled change</span
+                ><strong
+                  ng-class="{'positive': vm.result.summary.changePercent >= 0, 'negative': vm.result.summary.changePercent < 0}"
+                  >{{vm.result.summary.changePercent >= 0 ? '+' :
+                  ''}}{{vm.result.summary.changePercent | number:2}}%</strong
+                ><small
+                  >Across {{vm.result.forecast.length}} future candles</small
+                >
+              </article>
+            </div>
+            <div class="panel chart-panel">
+              <div class="chart-heading">
+                <h3>Price action & forecast</h3>
+                <div class="legend">
+                  <span><i class="history-dot"></i>Historical</span
+                  ><span><i class="forecast-dot"></i>Forecast</span>
+                </div>
+              </div>
+              <candle-chart result="vm.result"></candle-chart>
+              <div class="chart-footer">
+                <span
+                  >{{vm.result.context.used}} historical candles ·
+                  {{vm.result.forecast.length}} predicted</span
+                ><span>Scroll to zoom · Drag to pan</span>
+              </div>
+            </div>
+            <div class="panel forecast-table">
+              <div class="chart-heading">
+                <h3>Predicted candles</h3>
+                <span class="optional">{{vm.result.model}}</span>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Session</th>
+                      <th scope="col">Open</th>
+                      <th scope="col">High</th>
+                      <th scope="col">Low</th>
+                      <th scope="col">Close</th>
+                      <th scope="col">Volume</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr ng-repeat="candle in vm.result.forecast">
+                      <td>{{candle.time}}</td>
+                      <td>{{candle.open | number:2}}</td>
+                      <td>{{candle.high | number:2}}</td>
+                      <td>{{candle.low | number:2}}</td>
+                      <td
+                        ng-class="{'positive': candle.close >= candle.open, 'negative': candle.close < candle.open}"
+                      >
+                        {{candle.close | number:2}}
+                      </td>
+                      <td>{{candle.volume | number:0}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <p class="result-notes">
+              {{vm.result.source}} · Adjusted daily prices ·
+              {{vm.result.calendar === '24/7' ? '24/7 trading calendar' : 'US
+              exchange sessions'}} · Seed {{vm.result.seed}}.<span
+                ng-if="vm.result.normalizedCandles"
+              >
+                {{vm.result.normalizedCandles}} predicted candles had their
+                high/low or volume normalized.</span
+              >
+              Forecast starts after the last completed candle in the selected
+              range.
+            </p>
+          </div>
+          <div class="method-note">
+            <span class="note-icon">i</span>
+            <p>
+              <strong>A possible path, not a promise.</strong> Kronos generates
+              a sampled price scenario from historical OHLCV data. These
+              forecasts are experimental, not investment advice or calibrated
+              probabilities.
+            </p>
+          </div>
+        </section>
+      </div>
+      <footer>
+        <span
+          >POWERED BY
+          <a
+            href="https://github.com/shiyu-coder/Kronos"
+            target="_blank"
+            rel="noreferrer"
+            >KRONOS ↗</a
+          ></span
+        ><span
+          >Charts by
+          <a
+            href="https://www.tradingview.com/"
+            target="_blank"
+            rel="noreferrer"
+            >TradingView</a
+          ></span
+        >
+      </footer>
+    </main>
+    <noscript>This application requires JavaScript.</noscript>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+# Minimal inference dependencies; no training or plotting stack required.
+torch>=2.0,<3
+numpy>=1.26,<3
+pandas==2.2.2
+einops==0.8.1
+huggingface_hub==0.33.1
+safetensors==0.6.2
+tqdm==4.67.1
+yfinance>=0.2.65,<1
+pandas_market_calendars>=5.1,<6
